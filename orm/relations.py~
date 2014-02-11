@@ -1,0 +1,16 @@
+def get_name(relation):
+    """
+    supported relattions
+        zone-list
+        do-zone-refresh-serial
+        zone-refresh-serial
+    """
+    if relation.endswith('-list', ''):
+        name = relations.replace('-list', '')
+        name = name+'es' if name.endswith('s') else name+'s'
+    elif relation.startswith('do-'):
+        name = '-'.join(name.split('-')[2:])
+    else:
+        name = '-'.join(name.split('-')[1:])
+    name = name.replace('-', '_')
+    return name
