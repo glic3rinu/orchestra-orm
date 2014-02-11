@@ -1,17 +1,17 @@
 orchestra-orm
-#############
+=============
 
 A high level Python library for easily interacting with [django-orchestra](https://github.com/glic3rinu/django-orchestra) REST API using object oriented concepts.
 
 
 Installation
-============
+------------
 
     pip install orchestra-orm
 
 
 Design Considerations
-=====================
+---------------------
 
 The main goal of this library is to provide fast and easy access to Orchestra REST API: Open a Python interpreter and start interacting right away.
 
@@ -26,7 +26,7 @@ Our hope is that you can use this library to produce brief, readable and efficie
 
 
 Object Oriented Modeling
-========================
+------------------------
 
 The following diagram illustrates the classes used to model Orchestra REST API and how they relate to each other.
 
