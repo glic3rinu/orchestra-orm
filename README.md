@@ -1,7 +1,7 @@
 orchestra-orm
 =============
 
-Orchestra-orm (aka Orchestra Object REST Mapper or Orchestra Object Resource Mapper) is a high level Python library for easily interacting with  [django-orchestra REST API](https://github.com/glic3rinu/django-orchestra) using object oriented concepts.
+Orchestra-orm (aka _Orchestra Object REST Mapper_ or _Orchestra Object Resource Mapper_) is a high level Python library for easily interacting with  [django-orchestra REST API](https://github.com/glic3rinu/django-orchestra) using object oriented concepts.
 
 
 
