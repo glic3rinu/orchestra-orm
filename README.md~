@@ -30,7 +30,8 @@ Object Oriented Modeling
 
 The following diagram illustrates the classes used to model Orchestra REST API and how they relate to each other.
 
-.. image:: images/model.png
+
+![](docs/images/model.png)
 
 
 * ``Api`` is a good starting point for browsing. It represents the ``Base`` resource of an API and it has ``links`` to ``Manager`` and ``Action``. These relations are discovered from the Link header of the HTTP response.

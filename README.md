@@ -15,11 +15,11 @@ Design Considerations
 
 The main goal of this library is to provide fast and easy access to Orchestra REST API: Open a Python interpreter and start interacting right away.
 
-To achieve this goal we have borrowed some ideas from traditional SQL `object relational mappers <http://en.wikipedia.org/wiki/Object-relational_mapping>`_ and applied them to an `hypermedia-driven <http://en.wikipedia.org/wiki/HATEOAS>`_ `resource-oriented <http://en.wikipedia.org/wiki/Resource-oriented_architecture>`_ architecture (Orchestra).
+To achieve this goal we have borrowed some ideas from traditional SQL [object relational mappers](http://en.wikipedia.org/wiki/Object-relational_mapping) and applied them to an [hypermedia-driven](http://en.wikipedia.org/wiki/HATEOAS) [resource-oriented](http://en.wikipedia.org/wiki/Resource-oriented_architecture) architecture (Orchestra).
 
-This library has been heavily inspired by `Django's ORM <https://docs.djangoproject.com/en/dev/topics/db/queries/>`_ implementation; also using an `Active Record <http://en.wikipedia.org/wiki/Active_record_pattern>`_ like pattern, plus concurrency based on `asynchronous non-blocking I/O <http://en.wikipedia.org/wiki/Asynchronous_I/O>`_ and caching based on `Identity Mapping <http://en.wikipedia.org/wiki/Identity_map_pattern>`_.
+This library has been heavily inspired by [Django's ORM](https://docs.djangoproject.com/en/dev/topics/db/queries/) implementation; also using an [Active Record](http://en.wikipedia.org/wiki/Active_record_pattern) like pattern, plus concurrency based on [asynchronous non-blocking I/O](http://en.wikipedia.org/wiki/Asynchronous_I/O) and caching based on [Identity Mapping](http://en.wikipedia.org/wiki/Identity_map_pattern).
 
-Orchestra-orm leverages the `HATEOAS <http://en.wikipedia.org/wiki/HATEOAS>`_ discoverability of Orchestra's API; rather than relying on a predefined knowledge, resources and methods are autodiscovered on
+Orchestra-orm leverages the [HATEOAS](http://en.wikipedia.org/wiki/HATEOAS) discoverability of Orchestra's API; rather than relying on a predefined knowledge, resources and methods are autodiscovered on
 the fly, while browsing the API.
 
 Our hope is that you can use this library to produce brief, readable and efficient code in a fun and effortless way :)
