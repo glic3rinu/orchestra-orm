@@ -12,9 +12,11 @@ from .managers import Manager
 from .utils import DisabledStderr
 
 
-logging.basicConfig()
+#logging.basicConfig()
 log = logging.getLogger(__name__)
 
+def isurl(value):
+    return isinstance(value, basestring) and value.startswith('http')
 
 class Resource(object):
     """ schema-free resource representation (active record) """
@@ -32,19 +34,19 @@ class Resource(object):
         self.url = None
         self.api = None
         self.manager = None
+        if args:
+            self.api = args[0]
         self._headers = dict(kwargs.get('_headers', {}))
         if self._headers:
             self.process_links()
         self._has_retrieved = bool(self._headers and 'link' in self._headers)
-        if args:
-            self.api = args[0]
         # Build nested Resource structure
         for name, value in kwargs.iteritems():
             if not name.startswith('_'):
-                if name != 'url' and value.startswith('http'):
+                if name != 'url' and isurl(value):
                     value = Resource(*args, url=value)
                 elif isinstance(value, list):
-                    if value and value[0].startswith('http'):
+                    if value and isurl(value[0]):
                         value = [ Resource(*args, url=url) for url in value ]
                     value = RelatedCollection(value, parent=self, related_name=name)
                 self.__dict__[name] = value
@@ -184,7 +186,7 @@ class Resource(object):
                 self.process_links()
             self._has_retrieved = True
         
-        if async:
+        if async and False: # TODO gevent option
             self._glet = gevent.spawn(do_retrieve, conditional, async)
             self.api.stats['async'] += 1
         else:
@@ -197,10 +199,8 @@ class Resource(object):
             return raw_data['url']
         data = {}
         for key, value in raw_data.iteritems():
-            if isinstance(value, Resource):
+            if type(value) in (Resource, RelatedCollection, Collection):
                 value = value.serialize(isnested=True)
-            elif isinstance(value, RelatedCollection):
-                value = value.serialize()
             data[key] = value
         return data
     
@@ -229,7 +229,7 @@ class Collection(object):
         return str(self.resources)
     
     def __str__(self):
-        return str([str(resource) for resource in self.resources])
+        return json.dumps(self.serialize(), indent=4)
     
     def __init__(self, resources, api, url):
         self.resources = resources
@@ -260,8 +260,10 @@ class Collection(object):
             url += url + '/'
         return url.split('/')[-2]
         
-    def serialize(self):
+    def serialize(self, isnested=False):
         if self.resources and isinstance(self.resources[0], Resource):
+            if isnested:
+                return [resource.url for resource in self.resources]
             return [resource.serialize() for resource in self.resources]
         return [resource for resource in self.resources]
     
@@ -325,26 +327,31 @@ class Collection(object):
         if reverse:
             self.resources.reverse()
     
-    def bulk(self, method, merge=True, **kwargs):
-        glets = []
-        for resource in self.resources:
-            args = (resource.url, kwargs) if kwargs else (resource.url,)
-            glets.append(gevent.spawn(method(resource.api), *args))
-        total = len(glets)
-        successes = []
-        failures = []
-        for glet, resource in zip(glets, self.resources):
-            resource.api.stats['async'] += 1
-            with DisabledStderr():
-                glet.get()
-            if glet._exception:
-                log.error(glet._exception)
-                failures.append(resource)
-            else:
-                if merge:
-                    resource.merge(glet.value)
-                successes.append(resource)
-        return successes, failures
+    def bulk(self, method, merge=True, async=True, **kwargs):
+        if async and False: # TODO gevent option
+            glets = []
+            for resource in self.resources:
+                args = (resource.url, kwargs) if kwargs else (resource.url,)
+                glets.append(gevent.spawn(method(resource.api), *args))
+            total = len(glets)
+            successes = []
+            failures = []
+            for glet, resource in zip(glets, self.resources):
+                resource.api.stats['async'] += 1
+                with DisabledStderr():
+                    glet.get()
+                if glet._exception:
+                    log.error(glet._exception)
+                    failures.append(resource)
+                else:
+                    if merge:
+                        resource.merge(glet.value)
+                    successes.append(resource)
+            return successes, failures
+        else:
+            for resource in self.resources:
+                args = (resource.url, kwargs) if kwargs else (resource.url,)
+                method(resource.api, *args)
     
     def destroy(self):
         return self.bulk(lambda n: n.destroy, merge=False)
@@ -353,7 +360,7 @@ class Collection(object):
         """ remote update of all set elements """
         return self.bulk(lambda n: n.partial_update, **kwargs)
     
-    def retrieve(self, async=True):
+    def retrieve(self, async=True, **kwargs):
         self.resources = [resource for resource in self.iterator(async=async)]
     
     def retrieve_related(self, *args, **kwargs):
