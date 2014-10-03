@@ -5,8 +5,7 @@ from copy import copy
 
 import gevent
 
-from . import helpers
-from . import relations as rel
+from . import helpers, exceptions, relations as rel
 from .files import FileHandler
 from .managers import Manager
 from .utils import DisabledStderr
@@ -293,10 +292,15 @@ class Collection(object):
     
     def get(self, **kwargs):
         resource = helpers.filter_collection(self, **kwargs)
+        manager = self.manager.relation
         if len(resource) > 1:
-            raise TypeError('more than one')
+            raise exceptions.DoesNotExist(
+                'More than one resource returned with "%s" on "%s"' % (str(kwargs)), manager
+            )
         elif len(resource) < 1:
-            raise TypeError('not found')
+            raise exceptions.DoesNotExist(
+                'Resource with "%s" do not exists on "%s"' % (str(kwargs), manager)
+            )
         return resource[0]
     
     def exclude(self, **kwargs):
@@ -353,8 +357,11 @@ class Collection(object):
                 args = (resource.url, kwargs) if kwargs else (resource.url,)
                 method(resource.api, *args)
     
-    def destroy(self):
+    def delete(self):
         return self.bulk(lambda n: n.destroy, merge=False)
+    
+    def save(self):
+        return self.bulk(lambda n: n.update, merge=False)
     
     def update(self, **kwargs):
         """ remote update of all set elements """
@@ -452,7 +459,7 @@ class ResourceSet(Collection):
         raise AttributeError(msg % (str(type(self)), name))
     
     def create(self):
-        return AttributeError('non-uniform resources can not be created')
+        return TypeError('Non-uniform resources can not be created')
     
     def append(self, resource):
         self.resources.append(resource)

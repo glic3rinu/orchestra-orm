@@ -5,8 +5,7 @@ import requests
 
 from gevent import monkey
 
-from . import status
-from . import relations as rel
+from . import status, exceptions, relations as rel
 from .caches import CacheDict
 from .resources import Resource, Collection
 from .utils import ZeroDefaultDict
@@ -17,14 +16,6 @@ log = logging.getLogger(__name__)
 
 if False: # TODO optionally disable gevent
     monkey.patch_all(thread=False, select=False)
-
-
-class ResourceJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        try:
-            return super(ResourceJSONEncoder, self).default(obj)
-        except TypeError:
-            return obj.serialize()
 
 
 class Api(Resource):
@@ -45,6 +36,7 @@ class Api(Resource):
         'accept': CONTENT_TYPE,
         'content-type': CONTENT_TYPE,
     }
+    ResponseStatusError = exceptions.ResponseStatusError
     
     def __init__(self, url, username='', password='', cache=False):
         super(Api, self).__init__(self, url=url)
@@ -65,8 +57,12 @@ class Api(Resource):
     def serialize_request(self, content):
         """ hook for other content-type request serialization """
         if self.CONTENT_TYPE == 'application/json':
-            r = Resource(**content)
-            print r.serialize()
+            class ResourceJSONEncoder(json.JSONEncoder):
+                def default(self, obj):
+                    try:
+                        return super(ResourceJSONEncoder, self).default(obj)
+                    except TypeError:
+                        return obj.serialize()
             return json.dumps(content, cls=ResourceJSONEncoder)
         else:
             msg = "serialization for '%s' request not implemented"
@@ -174,10 +170,10 @@ class Api(Resource):
                 if content['url'] != response.url:
                     self.url = content['url']
                     response = self.get(self.url)
+        self._has_retrieved = True # avoid further queries on __getattr__
         base = Resource.from_response(self, response)
         self.merge(base)
         self.process_links()
-        self._has_retrieved = True
     
     def retrieve(self, *args, **kwargs):
         """ high level api method for retrieving objects """
@@ -279,6 +275,3 @@ class Api(Resource):
     @classmethod
     def disable_logging(cls):
         cls.logger.setLevel(logging.ERROR)
-    
-    class ResponseStatusError(Exception):
-        pass

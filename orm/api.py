@@ -5,8 +5,7 @@ import requests
 
 from gevent import monkey
 
-from . import status
-from . import relations as rel
+from . import status, exceptions, relations as rel
 from .caches import CacheDict
 from .resources import Resource, Collection
 from .utils import ZeroDefaultDict
@@ -37,6 +36,7 @@ class Api(Resource):
         'accept': CONTENT_TYPE,
         'content-type': CONTENT_TYPE,
     }
+    ResponseStatusError = exceptions.ResponseStatusError
     
     def __init__(self, url, username='', password='', cache=False):
         super(Api, self).__init__(self, url=url)
@@ -170,10 +170,11 @@ class Api(Resource):
                 if content['url'] != response.url:
                     self.url = content['url']
                     response = self.get(self.url)
+        # avoid further queries on __getattr__
+        self._has_retrieved = True
         base = Resource.from_response(self, response)
         self.merge(base)
         self.process_links()
-        self._has_retrieved = True
     
     def retrieve(self, *args, **kwargs):
         """ high level api method for retrieving objects """
@@ -275,6 +276,3 @@ class Api(Resource):
     @classmethod
     def disable_logging(cls):
         cls.logger.setLevel(logging.ERROR)
-    
-    class ResponseStatusError(Exception):
-        pass
