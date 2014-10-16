@@ -105,6 +105,7 @@ class Api(Resource):
             self.stats['conditional'] += 1
         log.debug('KWARGS: %s' % str(kwargs))
         log.debug('RESPONSE: %s' % log_msg)
+        self.last_response = response
         return response
     
     def get(self, url, **kwargs):
@@ -170,7 +171,8 @@ class Api(Resource):
                 if content['url'] != response.url:
                     self.url = content['url']
                     response = self.get(self.url)
-        self._has_retrieved = True # avoid further queries on __getattr__
+        # avoid further queries on __getattr__
+        self._has_retrieved = True
         base = Resource.from_response(self, response)
         self.merge(base)
         self.process_links()

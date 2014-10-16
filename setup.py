@@ -10,7 +10,7 @@ packages = find_packages('.')
 
 setup(
     name = 'orchestra-orm',
-    version = '0.1',
+    version = '0.2',
     packages = packages,
     include_package_data = True,
     license = 'BSD License',

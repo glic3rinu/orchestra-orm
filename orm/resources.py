@@ -14,8 +14,10 @@ from .utils import DisabledStderr
 #logging.basicConfig()
 log = logging.getLogger(__name__)
 
+
 def isurl(value):
     return isinstance(value, basestring) and value.startswith('http')
+
 
 class Resource(object):
     """ schema-free resource representation (active record) """
@@ -23,7 +25,7 @@ class Resource(object):
     
     def __repr__(self):
         module, name = type(self).__module__, type(self).__name__
-        return "<%s.%s: %s>" % (module, name, self.url or id(self))
+        return "<%s: %s>" % (self.get_name().capitalize(), self.url or id(self))
     
     def __str__(self):
         return json.dumps(self.serialize(), indent=4)
@@ -42,13 +44,22 @@ class Resource(object):
         # Build nested Resource structure
         for name, value in kwargs.iteritems():
             if not name.startswith('_'):
-                if name != 'url' and isurl(value):
-                    value = Resource(*args, url=value)
-                elif isinstance(value, list):
-                    if value and isurl(value[0]):
-                        value = [ Resource(*args, url=url) for url in value ]
+#                if name != 'url' and isurl(value):
+#                    value = Resource(*args, url=value)
+                if isinstance(value, list):
+                    # TODO remove forever
+                    # ['http://example.com/resources/1']
+#                    if value and isurl(value[0]):
+#                        value = [ Resource(*args, url=url) for url in value ]
+                    # [{'url': 'http://example.com/resources/1'}]
+                    if value and isinstance(value[0], dict) and 'url' in value[0]:
+                        value = [ Resource(*args, **r) for r in value ]
                     value = RelatedCollection(value, parent=self, related_name=name)
-                self.__dict__[name] = value
+#                elif isinstance(value, dict):
+#                    value = Resource(*args, **value)
+                setattr(self, name, value)
+                    # TODO remove forever
+#                .__dict__[name] = value
         self._set_file_handlers()
     
     def __getattr__(self, name):
@@ -57,8 +68,7 @@ class Resource(object):
             if not self._has_retrieved:
                 self.retrieve()
                 return getattr(self, name)
-        msg = "'%s' object has no attribute '%s'"
-        raise AttributeError(msg % (str(type(self)), name))
+        raise AttributeError("'%s' has no attribute '%s'" % (repr(self), name))
     
     def __eq__(self, other):
         if not isinstance(other, Resource):
@@ -70,7 +80,7 @@ class Resource(object):
         return self._data == other._data
     
     def _set_file_handlers(self):
-        """ add a file handler for related resource files """
+        """ adds a file handler for related resource files """
         data = self._data
         for name, value in data.iteritems():
             if name.endswith('_url'):
@@ -89,7 +99,7 @@ class Resource(object):
     
     @property
     def _data(self):
-        """ hide internal methods and attributes """
+        """ hides internal methods and attributes """
         data = {}
         for name, value in self.__dict__.iteritems():
             if not name.startswith('_') and name not in self._serialize_ignores:
@@ -99,7 +109,7 @@ class Resource(object):
         return data
     
     def get_links(self):
-        """ get link header urls mapped by relation """
+        """ gets link header urls mapped by relation """
         links = {}
         link_header = self._headers.get('link', False)
         if link_header:
@@ -120,6 +130,7 @@ class Resource(object):
     
     def get_name(self):
         """ getting the resource name, suggestions are welcome :) """
+        # TODO singular function that handles 'es' and stuff..
         if self.url:
             url = self.url
             if not url.endswith('/'):
@@ -135,7 +146,7 @@ class Resource(object):
         raise ValueError("don't know the name")
     
     def save(self):
-        """ save object on remote and update field values from response """
+        """ saves object on remote and update field values from response """
         if self.url:
             self.validate_binding()
             resource = self.api.update(self.url, self.serialize())
@@ -145,7 +156,7 @@ class Resource(object):
         self.merge(resource)
     
     def merge(self, resource):
-        """  merge input resource attributes to current resource """
+        """  merges input resource attributes to current resource """
         for key, value in resource._data.iteritems():
             setattr(self, key, value)
         self._set_file_handlers()
@@ -154,12 +165,13 @@ class Resource(object):
             self._has_retrieved = resource._has_retrieved
     
     def delete(self):
-        """ delete remote object """
+        """ deletes remote object """
         self.validate_binding(url=True)
         self.api.destroy(self.url)
     
+    # TODO replace by save(update_field=[])
     def update(self, **kwargs):
-        """ partial remote update of the object """
+        """ performs partial remote update of the object """
         self.validate_binding(url=True)
         resource = self.api.partial_update(self.url, kwargs)
         self.merge(resource)
@@ -171,7 +183,7 @@ class Resource(object):
             log.error(glet._exception)
     
     def retrieve(self, conditional=True, async=False):
-        """ retrieve remote state of this object """
+        """ retrieves remote state of this object """
         def do_retrieve(conditional, async):
             extra_headers = {}
             if conditional and self._has_retrieved and not self.api.cache_enabled:
@@ -192,10 +204,14 @@ class Resource(object):
             do_retrieve(conditional, async)
     
     def serialize(self, isnested=False):
-        """ serialize object for storing in remote server """
+        """ serializes object for storing in remote server """
         raw_data = self._data
         if isnested and 'url' in raw_data:
-            return raw_data['url']
+            # Remove further nested objects to avoid circular relations
+            return {
+                k: v for k,v in raw_data.iteritems() if not isinstance(v, RelatedCollection)
+            }
+#            return raw_data['url']
         data = {}
         for key, value in raw_data.iteritems():
             if type(value) in (Resource, RelatedCollection, Collection):
@@ -204,7 +220,7 @@ class Resource(object):
         return data
     
     def bind(self, manager):
-        """ bind object to an api endpoint """
+        """ binds object to an api endpoint """
         self.api = manager.api
         self.manager = manager
     
@@ -246,7 +262,7 @@ class Collection(object):
         return len(self.resources)
     
     def __getattr__(self, name):
-        """ proxy methods of endpoint manager """
+        """ proxies endpoint manager's methods """
         try:
             return getattr(self.manager, name)
         except AttributeError:
@@ -261,8 +277,9 @@ class Collection(object):
         
     def serialize(self, isnested=False):
         if self.resources and isinstance(self.resources[0], Resource):
-            if isnested:
-                return [resource.url for resource in self.resources]
+            # TODO remove forever
+#            if isnested:
+#                return [resource.url for resource in self.resources]
             return [resource.serialize() for resource in self.resources]
         return [resource for resource in self.resources]
     
@@ -331,12 +348,11 @@ class Collection(object):
         if reverse:
             self.resources.reverse()
     
-    def bulk(self, method, merge=True, async=True, **kwargs):
+    def bulk(self, method, merge=True, async=True):
         if async and False: # TODO gevent option
             glets = []
             for resource in self.resources:
-                args = (resource.url, kwargs) if kwargs else (resource.url,)
-                glets.append(gevent.spawn(method(resource.api), *args))
+                glets.append(gevent.spawn(method(resource)))
             total = len(glets)
             successes = []
             failures = []
@@ -354,24 +370,23 @@ class Collection(object):
             return successes, failures
         else:
             for resource in self.resources:
-                args = (resource.url, kwargs) if kwargs else (resource.url,)
-                method(resource.api, *args)
+                method(resource)
     
     def delete(self):
-        return self.bulk(lambda n: n.destroy, merge=False)
+        return self.bulk(lambda r: r.api.destroy(r.url), merge=False)
     
     def save(self):
-        return self.bulk(lambda n: n.update, merge=False)
+        return self.bulk(lambda r: r.api.update(r.url, r.serialize()), merge=False)
     
     def update(self, **kwargs):
-        """ remote update of all set elements """
-        return self.bulk(lambda n: n.partial_update, **kwargs)
+        """ performs remote update of all set elements """
+        return self.bulk(lambda r: r.partial_update(r.url, **kwargs))
     
     def retrieve(self, async=True, **kwargs):
         self.resources = [resource for resource in self.iterator(async=async)]
     
     def retrieve_related(self, *args, **kwargs):
-        """ fetched related elements in batch """
+        """ fetches related elements in batch """
         helpers.retrieve_related(self.resources, *args, **kwargs)
     
     def values_list(self, value):
@@ -427,21 +442,22 @@ class RelatedCollection(Collection):
         return self.related_name
     
     def create(self, **kwargs):
-        """ appending related object as attributes of new resource """
+        """ applies related object as attributes of new resource """
         kwargs[self.parent.get_name()] = self.parent
         resource = self.manager.create(**kwargs)
         self.resources.append(resource)
         return resource
     
     def retrieve(self):
-        """ retrieve related collection taking care of the parent """
+        """ retrieves related collection taking care of the parent """
         self.parent.retrieve()
         collection = getattr(self.parent, self.related_name)
         super(RelatedCollection, collection).retrieve()
         return collection
     
     def append(self, resource):
-        setattr(resource, self.parent.get_name(), self.parent)
+        if isinstance(resource, Resource):
+            setattr(resource, self.parent.get_name(), self.parent)
         self.resources.append(resource)
 
 

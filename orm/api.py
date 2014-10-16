@@ -45,6 +45,7 @@ class Api(Resource):
         self.cache_enabled = cache
         self.cache = CacheDict()
         self.stats = ZeroDefaultDict()
+        self.last_response = None
     
     def serialize_response(self, content):
         """ hook for other content-type response serialization """
@@ -105,6 +106,7 @@ class Api(Resource):
             self.stats['conditional'] += 1
         log.debug('KWARGS: %s' % str(kwargs))
         log.debug('RESPONSE: %s' % log_msg)
+        self.last_response = response
         return response
     
     def get(self, url, **kwargs):
